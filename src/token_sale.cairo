@@ -92,7 +92,7 @@ mod TokenSale {
         }
 
         fn upgrade(ref self: ContractState, new_implementation: ClassHash) {
-            assert(get_caller_address() == self.owner.read(), 'Only owner can upgrade');
+            //assert(get_caller_address() == self.owner.read(), 'Only owner can upgrade');
             self.ownable.assert_only_owner();
             self.upgradeable.upgrade(new_implementation);
         }
