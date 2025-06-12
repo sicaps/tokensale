@@ -6,9 +6,7 @@ mod TokenSale {
     use crate::interfaces::ierc20::{IERC20Dispatcher, IERC20DispatcherTrait};
         
     use openzeppelin::upgrades::upgradeable::UpgradeableComponent;
-    //component!(path: UpgradeableComponent, storage: upgradeable, event: UpgradeableEvent);
     component!(path: UpgradeableComponent, storage: upgradeable, event: UpgradeableEvent);
-    //impl UpgradeableInternalImpl = UpgradeableComponent::InternalImpl<ContractState>;
     impl UpgradeableInternalImpl = UpgradeableComponent::InternalImpl<ContractState>;
 
     use openzeppelin::access::ownable::OwnableComponent;
