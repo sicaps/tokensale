@@ -1,12 +1,23 @@
 #[starknet::contract]
 mod TokenSale {
-    use starknet::{ContractAddress, get_contract_address, get_caller_address};
+    use starknet::{ContractAddress, get_contract_address, get_caller_address, ClassHash};
     use starknet::storage::{StoragePointerReadAccess, StoragePointerWriteAccess, Map, StoragePathEntry};
     use crate::interfaces::itoken_sale::ITokenSale;
     use crate::interfaces::ierc20::{IERC20Dispatcher, IERC20DispatcherTrait};
         
     use openzeppelin::upgrades::upgradeable::UpgradeableComponent;
-    component!{path: UpgradeableComponent, storage: upgradeable, event:UpgradeableEvent};
+    //component!(path: UpgradeableComponent, storage: upgradeable, event: UpgradeableEvent);
+    component!(path: UpgradeableComponent, storage: upgradeable, event: UpgradeableEvent);
+    //impl UpgradeableInternalImpl = UpgradeableComponent::InternalImpl<ContractState>;
+    impl UpgradeableInternalImpl = UpgradeableComponent::InternalImpl<ContractState>;
+
+    use openzeppelin::access::ownable::OwnableComponent;
+    component!(path: OwnableComponent, storage: ownable, event:OwnableEvent);
+    impl OwnableInternalImpl = OwnableComponent::InternalImpl<ContractState>;
+
+    #[abi(embed_v0)]
+    impl OwnableMixinImpl = OwnableComponent::OwnableMixinImpl<ContractState>;
+    //impl OwnableInternalImpl = OwnableComponent::InternalImpl<ContractState>;
 
 
     #[storage]
@@ -17,13 +28,17 @@ mod TokenSale {
        tokens_available_for_sale : Map<ContractAddress, u256>,
        #[substorage(v0)]
        upgradeable: UpgradeableComponent::Storage,
+       #[substorage(v0)]
+       ownable: OwnableComponent::Storage,
     }
 
     #[event]
-    #[derive(Drop, StarknetEvent)]
+    #[derive(Drop, starknet::Event)]
     enum Event {
         #[flat]
         UpgradeableEvent : UpgradeableComponent::Event,
+        #[flat]
+        OwnableEvent : OwnableComponent::Event,
     }
 
 
@@ -33,6 +48,7 @@ mod TokenSale {
         self.accepted_payment_token.write(accepted_payment_token);
     }
 
+    #[abi(embed_v0)]
     impl TokenSaleImpl of ITokenSale<ContractState> {
         fn check_available_token(self: @ContractState, token_address: ContractAddress) -> u256 {
             let token = IERC20Dispatcher { contract_address: token_address };
@@ -43,7 +59,8 @@ mod TokenSale {
         fn deposit(ref self: ContractState, token_address: ContractAddress, amount: u256, token_price: u256) {
             let caller_address = get_caller_address();
             let this_contract_address = get_contract_address();
-            assert(caller_address == self.owner.read(), 'Only owner can deposit');
+            //assert(caller_address == self.owner.read(), 'Only owner can deposit');
+            self.ownable.assert_only_owner();
 
             let token = IERC20Dispatcher { contract_address: self.accepted_payment_token.read() };
             assert!(token.balance_of(caller_address) > 0, "Caller does not have enough balance");
@@ -72,6 +89,12 @@ mod TokenSale {
             let total_balance = self.tokens_available_for_sale.entry(token_address).read();
             token_to_buy.transfer(buyer_address, total_balance);
             
+        }
+
+        fn upgrade(ref self: ContractState, new_implementation: ClassHash) {
+            assert(get_caller_address() == self.owner.read(), 'Only owner can upgrade');
+            self.ownable.assert_only_owner();
+            self.upgradeable.upgrade(new_implementation);
         }
     }
 }
